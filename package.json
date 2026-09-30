@@ -1,0 +1,24 @@
+{
+  "name": "backlinks-work-indexing-tool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backlinks Work Indexing Tool — agency-facing Google Indexing API MVP",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:generate": "pnpm --filter @bw/db generate",
+    "db:migrate": "pnpm --filter @bw/db migrate",
+    "db:push": "pnpm --filter @bw/db push",
+    "worker": "pnpm --filter @bw/queue worker",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

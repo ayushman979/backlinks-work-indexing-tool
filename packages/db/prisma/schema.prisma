@@ -1,0 +1,159 @@
+// Backlinks Work Indexing Tool — domain schema (week-1)
+// Postgres + Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubmitItemType {
+  url
+  backlink
+}
+
+enum SubmitItemStatus {
+  queued
+  submitted
+  error
+}
+
+enum CreditTxnType {
+  grant
+  debit
+  refund
+  adjustment
+}
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  serviceAccounts  ServiceAccount[]
+  creditBalance    CreditBalance?
+  creditTxns       CreditTxn[]
+  submitJobs       SubmitJob[]
+  apiKeys          ApiKey[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  agencyId     String
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  role         String   @default("member") // owner | admin | member
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  agency     Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  submitJobs SubmitJob[]
+
+  @@index([agencyId])
+}
+
+model ServiceAccount {
+  id               String   @id @default(cuid())
+  agencyId         String
+  clientEmail      String
+  projectId        String?
+  /// Encrypted JSON blob in later weeks — never store plaintext in prod
+  credentialsEnc   String?  @db.Text
+  /// Display label only
+  label            String?
+  isActive         Boolean  @default(true)
+  connectedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+  @@unique([agencyId, clientEmail])
+}
+
+model CreditBalance {
+  id        String   @id @default(cuid())
+  agencyId  String   @unique
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+}
+
+model CreditTxn {
+  id          String        @id @default(cuid())
+  agencyId    String
+  type        CreditTxnType
+  amount      Int
+  /// Positive = credit in; negative = spend
+  balanceAfter Int
+  reason      String?
+  refJobId    String?
+  createdAt   DateTime      @default(now())
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId, createdAt])
+}
+
+model SubmitJob {
+  id          String   @id @default(cuid())
+  agencyId    String
+  userId      String?
+  status      String   @default("queued") // queued | processing | completed | failed
+  itemCount   Int      @default(0)
+  successCount Int     @default(0)
+  errorCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  agency Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user   User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items  SubmitItem[]
+
+  @@index([agencyId, createdAt])
+}
+
+model SubmitItem {
+  id          String           @id @default(cuid())
+  jobId       String
+  url         String
+  type        SubmitItemType   @default(url)
+  status      SubmitItemStatus @default(queued)
+  /// Raw Google Indexing API / GSC response JSON
+  gscResponse String?          @db.Text
+  errorMessage String?
+  attempts    Int              @default(0)
+  submittedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  job SubmitJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, status])
+  @@index([status])
+}
+
+/// Optional stub for programmatic agency access
+model ApiKey {
+  id         String    @id @default(cuid())
+  agencyId   String
+  name       String
+  keyHash    String    @unique
+  prefix     String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+}
