@@ -1,5 +1,5 @@
 /**
- * @bw/google — Google Indexing API client stub
+ * @bw/google — Google Indexing API client
  *
  * ═══════════════════════════════════════════════════════════════════
  * GOOGLE INDEXING API — TERMS OF SERVICE (READ BEFORE IMPLEMENTING)
@@ -25,11 +25,17 @@
  *    Agencies must obtain explicit client authorization and retain an
  *    audit trail of which properties were submitted on whose behalf.
  *
+ * 5. NO GUARANTEE
+ *    A successful API response means Google accepted the notification —
+ *    it does NOT guarantee crawling or indexing.
+ *
  * Docs: https://developers.google.com/search/apis/indexing-api/v3/quickstart
  * ═══════════════════════════════════════════════════════════════════
  */
 
 import { GoogleAuth, JWT } from "google-auth-library";
+
+export { encryptCredentials, decryptCredentials } from "./crypto.js";
 
 export const INDEXING_SCOPE =
   process.env.GOOGLE_INDEXING_SCOPE ??
@@ -54,7 +60,7 @@ export interface PublishUrlResult {
   /** Raw Google response body (JSON string) when available */
   gscResponse?: string;
   errorMessage?: string;
-  /** Stub flag — true until real HTTP is wired */
+  /** true when live HTTP was not used (missing creds or forced stub) */
   stub?: boolean;
 }
 
@@ -86,11 +92,11 @@ export function createGoogleAuth(keyFile?: string): GoogleAuth {
 /**
  * Publish a URL notification to the Indexing API.
  *
- * WEEK-1 STUB: does not call Google. Validates inputs and returns a
- * stub response. Wire real `client.request` in a later week after
- * SA connect + ownership checks land.
+ * When credentials are present: live HTTP call to Indexing API.
+ * When missing: stub fallback (ok=false) so local/dev still runs.
  *
  * ToS: caller MUST ensure the URL is owner-verified for this SA.
+ * Success ≠ guaranteed indexing.
  */
 export async function publishUrlNotification(
   credentials: ServiceAccountCredentials | null,
@@ -107,42 +113,75 @@ export async function publishUrlNotification(
   }
 
   if (!credentials?.client_email || !credentials?.private_key) {
+    // Stub fallback when no credentials
     return {
       ok: false,
       url,
       type,
       stub: true,
       errorMessage:
-        "No service-account credentials — connect a Google SA first (stub)",
+        "No service-account credentials — connect a Google SA first (stub fallback)",
     };
   }
 
-  // STUB: real implementation would:
-  //   const client = createJwtClient(credentials);
-  //   const res = await client.request({
-  //     url: INDEXING_ENDPOINT,
-  //     method: "POST",
-  //     data: { url, type },
-  //   });
-  //
-  // ToS reminder: only owner-verified URLs. No third-party spam.
+  // Force stub mode for tests / CI without hitting Google
+  if (process.env.GOOGLE_INDEXING_STUB === "1") {
+    const stubBody = {
+      stub: true,
+      message:
+        "Indexing API call skipped (GOOGLE_INDEXING_STUB=1). ToS: owner-only URLs. No indexing guarantee.",
+      url,
+      type,
+      clientEmail: credentials.client_email,
+    };
+    return {
+      ok: true,
+      url,
+      type,
+      stub: true,
+      gscResponse: JSON.stringify(stubBody),
+    };
+  }
 
-  const stubBody = {
-    stub: true,
-    message:
-      "Indexing API call not executed (week-1 stub). ToS: owner-only URLs.",
-    url,
-    type,
-    clientEmail: credentials.client_email,
-  };
+  try {
+    const client = createJwtClient(credentials);
+    const res = await client.request<{
+      urlNotificationMetadata?: unknown;
+      error?: { message?: string; code?: number };
+    }>({
+      url: INDEXING_ENDPOINT,
+      method: "POST",
+      data: { url, type },
+    });
 
-  return {
-    ok: true,
-    url,
-    type,
-    stub: true,
-    gscResponse: JSON.stringify(stubBody),
-  };
+    return {
+      ok: true,
+      url,
+      type,
+      stub: false,
+      gscResponse: JSON.stringify(res.data ?? {}),
+    };
+  } catch (err: unknown) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: unknown }).message)
+        : String(err);
+    let gscResponse: string | undefined;
+    if (err && typeof err === "object" && "response" in err) {
+      const resp = (err as { response?: { data?: unknown } }).response;
+      if (resp?.data !== undefined) {
+        gscResponse = JSON.stringify(resp.data);
+      }
+    }
+    return {
+      ok: false,
+      url,
+      type,
+      stub: false,
+      errorMessage: message,
+      gscResponse,
+    };
+  }
 }
 
 export function parseServiceAccountJson(

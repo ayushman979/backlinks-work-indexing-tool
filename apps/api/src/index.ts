@@ -1,3 +1,4 @@
+import "./env.js";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -24,7 +25,7 @@ app.get("/health", (c) =>
     ok: true,
     service: "bw-indexing-api",
     tos:
-      "Google Indexing API: owner-only URLs; no third-party spam. See README.",
+      "Google Indexing API: owner-only URLs; no third-party spam. Notification ≠ guaranteed indexing.",
   }),
 );
 
@@ -38,7 +39,7 @@ const port = Number(process.env.API_PORT ?? 3001);
 
 console.log(`[@bw/api] listening on http://localhost:${port}`);
 console.log(
-  "[@bw/api] ToS: Indexing API is for owner-verified URLs only — no third-party spam.",
+  "[@bw/api] ToS: Indexing API is for owner-verified URLs only — no third-party spam. No indexing guarantee.",
 );
 
 serve({ fetch: app.fetch, port });

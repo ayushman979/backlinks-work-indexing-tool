@@ -1,13 +1,19 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { prisma } from "@bw/db";
+import { enqueueSubmitItem } from "@bw/queue";
+import { requireAuth, type AuthVariables } from "../middleware/auth.js";
 
 /**
- * Bulk submit stub.
+ * Bulk submit — persists SubmitJob + SubmitItems, deducts credits, enqueues.
  *
  * ToS: every URL must be owner-verified for the agency's Google SA.
  * Do not accept third-party spam submissions.
+ * Submission ≠ guaranteed indexing.
  */
-export const submitRoutes = new Hono();
+export const submitRoutes = new Hono<{ Variables: AuthVariables }>();
+
+submitRoutes.use("*", requireAuth);
 
 const itemSchema = z.object({
   url: z.string().url(),
@@ -19,6 +25,7 @@ const bulkSchema = z.object({
 });
 
 submitRoutes.post("/", async (c) => {
+  const auth = c.get("user");
   const body = await c.req.json().catch(() => null);
   const parsed = bulkSchema.safeParse(body);
   if (!parsed.success) {
@@ -33,17 +40,131 @@ submitRoutes.post("/", async (c) => {
     0,
   );
 
-  const jobId = `stub-job-${Date.now()}`;
+  const sa = await prisma.serviceAccount.findFirst({
+    where: { agencyId: auth.agencyId, isActive: true },
+  });
+  if (!sa) {
+    return c.json(
+      {
+        error: "No active service account",
+        message: "Connect a Google service account before submitting URLs.",
+        tosWarning:
+          "Google Indexing API: submit only owner-verified URLs. No third-party spam.",
+      },
+      400,
+    );
+  }
+
+  let jobId: string;
+  let itemIds: Array<{ id: string; url: string; type: "url" | "backlink" }>;
+
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const balance = await tx.creditBalance.findUnique({
+        where: { agencyId: auth.agencyId },
+      });
+      if (!balance || balance.balance < estimatedCost) {
+        throw new Error("INSUFFICIENT_CREDITS");
+      }
+
+      const job = await tx.submitJob.create({
+        data: {
+          agencyId: auth.agencyId,
+          userId: auth.sub,
+          status: "queued",
+          itemCount: parsed.data.items.length,
+        },
+      });
+
+      const items = await Promise.all(
+        parsed.data.items.map((item) =>
+          tx.submitItem.create({
+            data: {
+              jobId: job.id,
+              url: item.url,
+              type: item.type,
+              status: "queued",
+            },
+            select: { id: true, url: true, type: true },
+          }),
+        ),
+      );
+
+      const updated = await tx.creditBalance.update({
+        where: { agencyId: auth.agencyId },
+        data: { balance: { decrement: estimatedCost } },
+      });
+
+      await tx.creditTxn.create({
+        data: {
+          agencyId: auth.agencyId,
+          type: "debit",
+          amount: -estimatedCost,
+          balanceAfter: updated.balance,
+          reason: `Bulk submit ${parsed.data.items.length} item(s)`,
+          refJobId: job.id,
+        },
+      });
+
+      return { job, items };
+    });
+
+    jobId = created.job.id;
+    itemIds = created.items.map((i) => ({
+      id: i.id,
+      url: i.url,
+      type: i.type as "url" | "backlink",
+    }));
+  } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
+      return c.json(
+        {
+          error: "Insufficient credits",
+          estimatedCreditCost: estimatedCost,
+        },
+        402,
+      );
+    }
+    throw err;
+  }
+
+  // Enqueue outside transaction (Redis may be briefly unavailable)
+  const enqueueErrors: string[] = [];
+  for (const item of itemIds) {
+    try {
+      await enqueueSubmitItem({
+        itemId: item.id,
+        jobId,
+        agencyId: auth.agencyId,
+        url: item.url,
+        type: item.type,
+      });
+    } catch (err) {
+      enqueueErrors.push(
+        `${item.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  if (enqueueErrors.length > 0) {
+    await prisma.submitJob.update({
+      where: { id: jobId },
+      data: { status: "processing" },
+    });
+  } else {
+    await prisma.submitJob.update({
+      where: { id: jobId },
+      data: { status: "processing" },
+    });
+  }
 
   return c.json({
-    stub: true,
     tosWarning:
-      "Google Indexing API: submit only owner-verified URLs. No third-party spam.",
+      "Google Indexing API: submit only owner-verified URLs. No third-party spam. Submission does not guarantee indexing.",
     jobId,
-    itemCount: parsed.data.items.length,
+    itemCount: itemIds.length,
     estimatedCreditCost: estimatedCost,
-    status: "queued",
-    message:
-      "Submit stub — persist SubmitJob/SubmitItem + enqueue BullMQ in a later week",
+    status: "processing",
+    enqueueErrors: enqueueErrors.length ? enqueueErrors : undefined,
   });
 });

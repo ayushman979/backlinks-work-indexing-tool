@@ -1,28 +1,65 @@
 import { Hono } from "hono";
+import { prisma } from "@bw/db";
+import { requireAuth, type AuthVariables } from "../middleware/auth.js";
 
-/**
- * Job status stubs.
- */
-export const jobsRoutes = new Hono();
+export const jobsRoutes = new Hono<{ Variables: AuthVariables }>();
 
-jobsRoutes.get("/:id", (c) => {
-  const id = c.req.param("id");
-  return c.json({
-    stub: true,
-    id,
-    status: "queued",
-    itemCount: 0,
-    successCount: 0,
-    errorCount: 0,
-    items: [],
-    message: "Job status stub — load SubmitJob + SubmitItems from DB later",
+jobsRoutes.use("*", requireAuth);
+
+jobsRoutes.get("/", async (c) => {
+  const auth = c.get("user");
+  const jobs = await prisma.submitJob.findMany({
+    where: { agencyId: auth.agencyId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      status: true,
+      itemCount: true,
+      successCount: true,
+      errorCount: true,
+      createdAt: true,
+      completedAt: true,
+    },
   });
+  return c.json({ jobs });
 });
 
-jobsRoutes.get("/", (c) => {
+jobsRoutes.get("/:id", async (c) => {
+  const auth = c.get("user");
+  const id = c.req.param("id");
+  const job = await prisma.submitJob.findFirst({
+    where: { id, agencyId: auth.agencyId },
+    include: {
+      items: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          url: true,
+          type: true,
+          status: true,
+          errorMessage: true,
+          gscResponse: true,
+          attempts: true,
+          submittedAt: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
   return c.json({
-    stub: true,
-    jobs: [],
-    message: "Job list stub",
+    id: job.id,
+    status: job.status,
+    itemCount: job.itemCount,
+    successCount: job.successCount,
+    errorCount: job.errorCount,
+    createdAt: job.createdAt,
+    completedAt: job.completedAt,
+    items: job.items,
+    note:
+      "Status reflects API notification attempts only — Google does not guarantee indexing.",
   });
 });

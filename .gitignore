@@ -35,3 +35,15 @@ packages/db/prisma/*.db-journal
 **/credentials*.json
 **/service-account*.json
 !**/.env.example
+
+# Uploaded SA files (never commit)
+uploads/
+data/service-accounts/
+*.pem
+packages/db/.env
+
+# Encrypted / uploaded SA storage (any cwd)
+data/
+apps/api/data/
+apps/*/data/
+*.json.enc

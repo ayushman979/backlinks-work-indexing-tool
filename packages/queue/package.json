@@ -19,8 +19,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@bw/db": "workspace:*",
     "@bw/google": "workspace:*",
     "bullmq": "^5.34.0",
+    "dotenv": "^18.0.4",
     "ioredis": "^5.4.2"
   },
   "devDependencies": {

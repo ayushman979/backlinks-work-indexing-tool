@@ -1,30 +1,48 @@
 "use client";
 
-import { useState } from "react";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
 
 export default function ConnectSaPage() {
   const [json, setJson] = useState("");
   const [label, setLabel] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<
+    Array<{ id: string; clientEmail: string; isActive: boolean; label?: string | null }>
+  >([]);
+
+  async function refresh() {
+    const { data } = await apiFetch<{
+      accounts?: Array<{
+        id: string;
+        clientEmail: string;
+        isActive: boolean;
+        label?: string | null;
+      }>;
+    }>("/service-account");
+    setAccounts(data.accounts ?? []);
+  }
+
+  useEffect(() => {
+    refresh().catch(() => undefined);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch(`${API}/service-account`, {
+      const { data } = await apiFetch("/service-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           credentialsJson: json,
           label: label || undefined,
         }),
       });
-      const data = await res.json();
       setResult(JSON.stringify(data, null, 2));
+      setJson("");
+      await refresh();
     } catch (err) {
       setResult(
         `Request failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -41,8 +59,19 @@ export default function ConnectSaPage() {
         Paste your own service-account JSON from Google Cloud. Do{" "}
         <strong>not</strong> invent credentials. The SA must have Search Console
         ownership for every URL you submit. Owner-only; no third-party spam.
-        Private keys are never logged; encryption-at-rest lands in a later week.
+        Credentials are encrypted at rest. Connecting does{" "}
+        <strong>not</strong> guarantee indexing.
       </div>
+      {accounts.length > 0 && (
+        <ul className="rounded-lg border bg-white p-3 text-sm shadow-sm">
+          {accounts.map((a) => (
+            <li key={a.id} className="font-mono text-xs">
+              {a.isActive ? "✅" : "○"} {a.label ? `${a.label} — ` : ""}
+              {a.clientEmail}
+            </li>
+          ))}
+        </ul>
+      )}
       <form onSubmit={onSubmit} className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <label className="block text-sm">
           Label (optional)
@@ -69,7 +98,7 @@ export default function ConnectSaPage() {
           disabled={loading}
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
         >
-          {loading ? "Connecting…" : "Connect (stub)"}
+          {loading ? "Connecting…" : "Connect & encrypt"}
         </button>
       </form>
       {result && (

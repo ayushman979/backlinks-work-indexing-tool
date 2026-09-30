@@ -1,6 +1,7 @@
 /**
  * Persistent Google Indexing API ToS warning banner.
  * Must remain visible across dashboard pages.
+ * NEVER claim guaranteed indexing.
  */
 export function TosBanner() {
   return (
@@ -15,7 +16,9 @@ export function TosBanner() {
         ownership in Google Search Console.{" "}
         <strong>No third-party spam</strong>, ranking manipulation, or mass
         submission of sites you do not control. Abuse can suspend your Google
-        Cloud project. See the project README for full compliance notes.
+        Cloud project. A successful API call notifies Google only — it does{" "}
+        <strong>not guarantee</strong> crawling or indexing. See the project
+        README for full compliance notes.
       </p>
     </div>
   );
