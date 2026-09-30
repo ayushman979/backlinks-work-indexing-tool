@@ -58,7 +58,9 @@ export default function ConnectSaPage() {
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
         Paste your own service-account JSON from Google Cloud. Do{" "}
         <strong>not</strong> invent credentials. The SA must have Search Console
-        ownership for every URL you submit. Owner-only; no third-party spam.
+        ownership for every destination URL sent for crawl notify. Backlink
+        checks do not permit submitting third-party linking URLs to the Indexing
+        API. Owner-only; no third-party spam.
         Credentials are encrypted at rest. Connecting does{" "}
         <strong>not</strong> guarantee indexing.
       </div>

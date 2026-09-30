@@ -1,5 +1,5 @@
 /**
- * Persistent Google Indexing API ToS warning banner.
+ * Persistent Google Indexing API / crawl-notify compliance banner.
  * Must remain visible across dashboard pages.
  * NEVER claim guaranteed indexing.
  */
@@ -9,14 +9,15 @@ export function TosBanner() {
       role="alert"
       className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
     >
-      <p className="font-semibold">Google Indexing API — Terms warning</p>
+      <p className="font-semibold">Verified-property workflow — Terms warning</p>
       <p className="mt-1 leading-relaxed">
-        Submit <strong>only URLs you own</strong> (or that your client owns and
-        has authorized). The connected service account must have verified
-        ownership in Google Search Console.{" "}
-        <strong>No third-party spam</strong>, ranking manipulation, or mass
-        submission of sites you do not control. Abuse can suspend your Google
-        Cloud project. A successful API call notifies Google only — it does{" "}
+        Use this tool only for URLs on Google Search Console properties where
+        the connected service account is an owner (including an authorized
+        client property). The Indexing API / crawl notify applies to destination
+        pages on those verified properties, <strong>not third-party linking
+        URLs</strong>. Backlink workflows check live, dofollow, target, and
+        status, then work with the client destination. No spam, quota farms, or
+        ranking manipulation. A successful notification does{" "}
         <strong>not guarantee</strong> crawling or indexing. See the project
         README for full compliance notes.
       </p>

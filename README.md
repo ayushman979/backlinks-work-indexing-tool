@@ -1,8 +1,8 @@
 # Backlinks Work Indexing Tool
 
-Agency-facing **Google Indexing API** MVP (gooindex-style). Manage agency credits, bulk-submit URLs/backlinks, queue jobs, track status, and connect Google service accounts.
+Agency-facing workflow for **crawl notify on verified client properties** and backlink checks. Manage agency credits, queue destination-page requests, verify backlink live/dofollow/target status, track jobs, and connect Google service accounts. This is not an “index any backlink on Google” tool.
 
-> **Product trajectory:** Week-1 scaffold → real DB/auth/queue (this release) → harden into a compliant **Index Hub** (owner-verified properties only, audit trail, rate limits).
+> **Positioning:** Bulk crawl notify for verified client properties, plus backlink verification. The Indexing API is for destination pages on properties where the connected service account is a verified Search Console owner—not third-party linking URLs.
 
 ## What works (MVP)
 
@@ -12,24 +12,24 @@ Agency-facing **Google Indexing API** MVP (gooindex-style). Manage agency credit
 | Prisma schema + migrations | ✅ |
 | Register / login (email+password → JWT) | ✅ |
 | Credits balance + debit on submit + refund on hard fail | ✅ |
-| Bulk submit → SubmitJob / SubmitItem + BullMQ enqueue | ✅ |
+| Bulk destination/crawl-check workflows → SubmitJob / SubmitItem + BullMQ enqueue | ✅ |
 | Job list + detail (queued \| submitted \| error) | ✅ |
 | Service-account connect (encrypted at rest) | ✅ |
-| Worker → Google Indexing API (live when creds present) | ✅ |
+| Worker → Google Indexing API for verified destination pages (live when creds present) | ✅ |
 | Stub fallback when no SA / `GOOGLE_INDEXING_STUB=1` | ✅ |
-| ToS banner (no indexing guarantee) | ✅ |
+| ToS banner (verified properties; no indexing guarantee) | ✅ |
 | Buy packages / affiliate / admin roles | ❌ skipped |
 
 ## ⚠️ Google Indexing API — Terms of Service warnings
 
 **Read before using this tool in production.**
 
-1. **Owner-only URLs.** The [Google Indexing API](https://developers.google.com/search/apis/indexing-api/v3/quickstart) may only be used for URLs that **you own** (or that the agency’s client owns and has authorized). The connected service account must have verified ownership in Google Search Console for every submitted URL’s property.
-2. **No third-party spam.** Do **not** use this product to mass-submit URLs you do not control, to manipulate rankings for sites you do not own, or to spam Google’s crawl infrastructure.
-3. **Quota & compliance.** Respect Google’s daily quotas and [Indexing API policies](https://developers.google.com/search/apis/indexing-api/v3/ranking). Abuse can result in project suspension.
-4. **Agency responsibility.** Agencies must obtain explicit client authorization and keep an audit of which properties were submitted on whose behalf.
-5. **Not a substitute for sitemap / natural discovery.** Prefer sitemaps and canonical crawl paths; use the Indexing API for time-sensitive pages (e.g. JobPosting, BroadcastEvent) per Google guidance.
-6. **No indexing guarantee.** A successful API response means Google **accepted the notification** — it does **not** guarantee crawling or indexing.
+1. **Verified-property owner only.** The [Google Indexing API](https://developers.google.com/search/apis/indexing-api/v3/quickstart) / crawl notify may be used only for destination pages on a Google Search Console property where the connected service account is an owner. Agencies must have client authorization.
+2. **Backlinks are checks, not third-party indexing.** The backlink product checks the linking URL’s live, dofollow, target, and status, then performs a destination-page crawl workflow for the client URL that received the link. It does **not** submit third-party linking URLs to the Indexing API. Optional IndexNow support may come later.
+3. **No third-party spam or quota farms.** Do **not** mass-submit URLs you do not control, manipulate rankings, or operate multi-account quota farms. Respect Google quotas and [Indexing API policies](https://developers.google.com/search/apis/indexing-api/v3/ranking); abuse can suspend the project.
+4. **Agency responsibility.** Agencies must keep an audit of authorized client properties and the destination URLs submitted on their behalf.
+5. **No indexing guarantee.** A successful API response means Google **accepted the notification** — it does **not** guarantee crawling or indexing. Sitemaps and natural discovery remain important.
+6. **Offer-language example.** Public positioning may say: “$5 for 100 backlink checks + destination crawl requests.” This is example language, not a live price UI, and never means “index any backlink on Google.”
 
 The web UI shows a persistent **ToS banner**. Ignoring these rules is grounds for account termination in later Index Hub releases.
 
@@ -77,7 +77,7 @@ pnpm dev
 pnpm worker
 ```
 
-Open http://localhost:3000 → **Register** an agency → **Connect SA** (your own JSON) → **Submit** owner-verified URLs → watch **Jobs**.
+Open http://localhost:3000 → **Register** an agency → **Connect SA** (your own JSON) → run a destination crawl or backlink-check workflow → watch **Jobs**.
 
 ### Individual apps
 
@@ -129,7 +129,7 @@ See [`.env.example`](./.env.example) for the full list:
 | GET | `/auth/me` | Bearer | Current user / agency / credits |
 | GET | `/credits` | Bearer | Agency credit balance |
 | GET | `/credits/txns` | Bearer | Recent credit transactions |
-| POST | `/submit` | Bearer | Bulk URL/backlink submit |
+| POST | `/submit` | Bearer | Destination crawl / backlink-check workflow |
 | GET | `/jobs` | Bearer | Job list |
 | GET | `/jobs/:id` | Bearer | Job + items status |
 | POST | `/service-account` | Bearer | Connect Google SA (encrypt+store) |

@@ -48,9 +48,13 @@ export default function SubmitPage() {
     <div className="mx-auto max-w-2xl space-y-4">
       <h1 className="text-2xl font-bold">Bulk submit</h1>
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-        Only submit <strong>owner-verified</strong> URLs / backlinks. No
-        third-party spam. Each item costs credits. A successful notification
-        does <strong>not</strong> guarantee Google will index the URL.
+        Destination URLs must be on a Google Search Console property where the
+        connected service account is the verified owner. A backlink workflow
+        checks the linking URL’s live, dofollow, target, and status, then works
+        with the client destination; it does <strong>not</strong> submit a
+        third-party linking URL to Google’s Indexing API. Each item costs
+        credits, and a successful notification does <strong>not</strong>
+        guarantee crawling or indexing.
       </div>
       <form onSubmit={onSubmit} className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <label className="block text-sm">
@@ -60,12 +64,12 @@ export default function SubmitPage() {
             onChange={(e) => setType(e.target.value as "url" | "backlink")}
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
           >
-            <option value="url">URL</option>
-            <option value="backlink">Backlink</option>
+            <option value="url">Destination URL</option>
+            <option value="backlink">Backlink check + destination crawl</option>
           </select>
         </label>
         <label className="block text-sm">
-          URLs (one per line, comma-separated, or CSV text)
+          Destination or backlink URLs (one per line, comma-separated, or CSV text)
           <textarea
             required
             rows={8}
@@ -80,7 +84,7 @@ export default function SubmitPage() {
           disabled={loading}
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
         >
-          {loading ? "Submitting…" : "Submit"}
+          {loading ? "Starting workflow…" : "Start workflow"}
         </button>
       </form>
       {jobId && (

@@ -45,8 +45,8 @@ export default function DashboardPage() {
       <h1 className="text-2xl font-bold">Dashboard</h1>
       <p className="text-slate-600">
         Credits, open jobs, and service-account status from the live API.
-        Submitting notifies Google — it does <strong>not</strong> guarantee
-        indexing.
+        Destination crawl notifications do <strong>not</strong> guarantee
+        crawling or indexing.
       </p>
       {error && (
         <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -90,7 +90,7 @@ export default function DashboardPage() {
           href="/submit"
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
         >
-          New submit
+          New workflow
         </Link>
         <Link
           href="/jobs"

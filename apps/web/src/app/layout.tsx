@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Backlinks Work Indexing Tool",
   description:
-    "Agency Google Indexing API MVP — credits, bulk submit, queue, status, service-account connect",
+    "Agency workflow for crawl notify on verified client properties, plus backlink checks and destination status",
 };
 
 export default function RootLayout({
